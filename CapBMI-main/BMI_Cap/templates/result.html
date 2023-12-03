@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <title>BMI 결과 및 병원 위치 지도</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding-top: 50px;
+        }
+
+        #result-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-top: 20px;
+            border: 1px solid #e0e0e0;
+        }
+
+        #map { height: 400px; }
+
+        h1 {
+            color: #007bff;
+        }
+
+        .alert {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="result-container">
+        <h1>BMI 결과</h1>
+        <div class="alert alert-primary">
+            <p class="mb-0">당신의 BMI는 <strong>{{ "%.3f"|format(bmi) }}</strong>입니다.</p>
+        </div>
+        <p>위치: {{ location }}</p>
+
+        <div class="alert alert-info">
+            <p>{{ alram }}</p>
+        </div>
+
+        <div id="map"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        var map = L.map('map').setView([37.5665, 126.9780], 15); // 초기 위치 설정, 서울을 중심으로 임시 설정
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+        }).addTo(map);
+
+        var markerIcon = L.icon({
+            iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        });
+
+        var encodedLocation = encodeURIComponent("{{ location }}");
+        var geocodeUrl = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodedLocation;
+        var hospitalUrl = "https://nominatim.openstreetmap.org/search?format=json&limit=5&amenity=hospital&radius=10000&q=" + encodedLocation;
+
+        fetch(geocodeUrl)
+            .then(response => response.json())
+            .then(data => {
+                var lat = data[0].lat;
+                var lon = data[0].lon;
+                var locationMarker = L.marker([lat, lon]).addTo(map);
+                map.setView([lat, lon], 15);
+
+                fetch(hospitalUrl)
+                    .then(response => response.json())
+                    .then(data => {
+                        data.forEach(hospital => {
+                            var hospLat = hospital.lat;
+                            var hospLon = hospital.lon;
+                            L.marker([hospLat, hospLon], { icon: markerIcon }).addTo(map)
+                                .bindPopup(hospital.display_name).openPopup();
+                        });
+                    })
+                    .catch(error => {
+                        console.log("병원을 찾을 수 없습니다.", error);
+                    });
+            })
+            .catch(error => {
+                console.log("위치를 찾을 수 없습니다.", error);
+            });
+    </script>
+</body>
+</html>
